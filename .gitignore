@@ -1,3 +1,23 @@
+# Data
+*.zip
+*.gz
+*.nii*
+*.html
+*.png
+*.mat
+*.txt
+*.css
+*.sif
+*.gif
+*.cat
+*.par
+*.fsf
+*.jpg
+
+# Directories
+data/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
