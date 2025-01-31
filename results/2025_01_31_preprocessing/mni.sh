@@ -1,11 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=register_to_MNI    # (Optional) SLURM job name
 #SBATCH --output=register_to_MNI_%j.log  # (Optional) SLURM log file name
-#SBATCH --time=02:00:00              # (Optional) time limit hh:mm:ss
-#SBATCH --cpus-per-task=1            # (Optional) number of CPU cores
-#SBATCH --mem=4gb                    # (Optional) memory per CPU core
+#SBATCH --time=8:00:00              # (Optional) time limit hh:mm:ss
+#SBATCH --cpus-per-task=2            # (Optional) number of CPU cores
+#SBATCH --mem=32gb                    # (Optional) memory per CPU core
 #SBATCH --mail-type=ALL              # (Optional) email events (BEGIN, END, FAIL)
-#SBATCH --mail-user=your_email@ufl.edu # (Optional) email address
+#SBATCH --output=mni.out 
+#SBATCH --error=mni.err
 
 # -----------------------------------------------------------------------------
 # This script searches for files ending in "*filtered_func_data_clean.nii.gz"
@@ -21,6 +22,8 @@
 # or load it within the script if needed.
 # -----------------------------------------------------------------------------
 
+module load fsl
+
 # Exit immediately if a command exits with a non-zero status
 set -e
 
@@ -28,7 +31,7 @@ set -e
 IN_DIR="/blue/ruogu.fang/ryoi360/projects/fmri_vlm/data/UKB/brain"
 
 # Reference MNI template (2 mm) from FSL or your custom path
-REF_PATH="/orange/ruogu.fang/zeyun.zhao/FSL/bb_FSL/data/standard/tpl-MNI152NLin6Asym_res-02_T1w.nii.gz"
+REF_PATH="/blue/ruogu.fang/ryoi360/projects/fmri_vlm/data/UKB/brain/tpl-MNI152NLin6Asym_res-02_T1w.nii.gz"
 
 # Desired isotropic voxel size in mm as a string (e.g., "2")
 APPLY_ISO_XFM="2"
