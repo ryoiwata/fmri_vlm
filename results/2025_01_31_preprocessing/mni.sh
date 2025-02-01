@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=register_to_MNI    # (Optional) SLURM job name
 #SBATCH --output=register_to_MNI_%j.log  # (Optional) SLURM log file name
-#SBATCH --time=8:00:00              # (Optional) time limit hh:mm:ss
+#SBATCH --time=6:00:00              # (Optional) time limit hh:mm:ss
 #SBATCH --cpus-per-task=2            # (Optional) number of CPU cores
-#SBATCH --mem=32gb                    # (Optional) memory per CPU core
+#SBATCH --mem=64gb                    # (Optional) memory per CPU core
 #SBATCH --mail-type=ALL              # (Optional) email events (BEGIN, END, FAIL)
 #SBATCH --output=mni.out 
 #SBATCH --error=mni.err
