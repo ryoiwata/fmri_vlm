@@ -1,51 +1,87 @@
 #!/usr/bin/env python3
 """
-A script to:
-1) Scrape study information from a paginated table at neurosynth.org (or another site).
-2) Extract the PMID for each study.
-3) Build a PubMed URL for each PMID, parse the resulting page for a DOI, 
-4) Attempt to download the PDF via Sci-Hub.
+A script to manage PDF downloads from direct URLs or Sci-Hub. 
+It reads CSV files listing PDFs to download, tries to fetch them, 
+and updates the CSV with the download status and final URL.
 
-The results are saved in a CSV file, while PDFs are stored locally if found.
+Author: [Your Name]
+Date: [Optional: YYYY-MM-DD]
 """
 
-import requests
+import os
 import time
+import random
+import requests
 import pandas as pd
 from bs4 import BeautifulSoup
 from ipdb import set_trace
 
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
-
-def get_pdf_from_doi(doi, pdf_name):
+def download_pdf(pdf_url: str, pdf_name: str) -> int:
     """
-    Attempt to download a paper's PDF from Sci-Hub using the given DOI.
-    
+    Download a PDF directly from a given URL, saving it with pdf_name.
+
     Args:
-        doi (str): The paper's DOI.
-        pdf_name (str): Filename prefix used for saving the PDF.
-        
-    Returns:
-        (status_code, pdf_url): 
-            status_code = 1 if PDF successfully downloaded, -1 otherwise
-            pdf_url = The direct PDF link or -1 if none found.
-    """
-    sci_hub_url = "https://sci-hub.ren/"
-    page_url = sci_hub_url + doi
-    print(f"Visiting Sci-Hub page: {page_url}")
+        pdf_url (str): Direct URL to the PDF resource.
+        pdf_name (str): Filename to use for saving the PDF (without '.pdf').
 
+    Returns:
+        int: 1 if successful, -1 otherwise.
+    """
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+    ]
+    headers = {
+        "User-Agent": random.choice(user_agents)
+    }
+
+    # Sleep randomly between 2 and 5 seconds to avoid server suspicion
+    time.sleep(random.uniform(2, 5))
+
+    response = requests.get(pdf_url, headers=headers, stream=True)
+    if response.status_code == 200:
+        output_dir = "D:\\study\\Python_code\\BrainVLM\\PDFs\\"
+        pdf_path = os.path.join(output_dir, f"{pdf_name}.pdf")
+        with open(pdf_path, "wb") as file_obj:
+            for chunk in response.iter_content(chunk_size=1024):
+                file_obj.write(chunk)
+
+        print("Download successful.")
+        response.close()
+        return 1
+    else:
+        print(f"Failed to download. Status code: {response.status_code}")
+        response.close()
+        return -1
+
+
+def download_pdf_scihub(page_url: str, pdf_name: str) -> tuple:
+    """
+    Attempt to download a PDF from Sci-Hub by first scraping the Sci-Hub page,
+    finding the <embed type="application/pdf">, and then saving the PDF.
+
+    Args:
+        page_url (str): The Sci-Hub URL which should contain an embedded PDF.
+        pdf_name (str): Filename to save the PDF as (excluding '.pdf').
+
+    Returns:
+        (int, str):
+            - int: 1 if successful, -1 otherwise
+            - str: The final PDF URL or -1 if none found
+    """
     headers = {
         "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                        "AppleWebKit/537.36 (KHTML, like Gecko) "
                        "Chrome/120.0.0.0 Safari/537.36")
     }
     response = requests.get(page_url, headers=headers)
-
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, "html.parser")
         embed_tag = soup.find("embed", {"type": "application/pdf"})
@@ -53,11 +89,14 @@ def get_pdf_from_doi(doi, pdf_name):
             pdf_url = embed_tag["src"].split("#")[0]  # remove any anchor
             print(f"Found PDF URL: {pdf_url}")
 
+            # Ensure pdf_url is fully qualified (has http/https)
+            if "http" not in pdf_url:
+                pdf_url = "http://" + pdf_url.split("//")[-1]
+
             pdf_response = requests.get(pdf_url, headers=headers, stream=True)
             if pdf_response.status_code == 200:
                 output_dir = "D:\\study\\Python_code\\BrainVLM\\PDFs\\"
-                pdf_path = f"{output_dir}{pdf_name}.pdf"
-
+                pdf_path = os.path.join(output_dir, f"{pdf_name}.pdf")
                 with open(pdf_path, "wb") as file_obj:
                     for chunk in pdf_response.iter_content(chunk_size=1024):
                         file_obj.write(chunk)
@@ -68,170 +107,63 @@ def get_pdf_from_doi(doi, pdf_name):
                 print(f"PDF download failed, status code: {pdf_response.status_code}")
                 return -1, pdf_url
         else:
-            print("No <embed> PDF resource found on the page.")
+            print("No PDF resource (<embed>) found on the page.")
             return -1, -1
     else:
-        print(f"Failed to access Sci-Hub, status code: {response.status_code}")
+        print(f"Page access failed, status code: {response.status_code}")
         return -1, -1
-
-
-def extract_doi_from_pubmed(paper_url, pdf_name):
-    """
-    Given a PubMed page URL, parse for the DOI, then attempt to download the PDF via Sci-Hub.
-
-    Args:
-        paper_url (str): The full PubMed URL (e.g., "https://pubmed.ncbi.nlm.nih.gov/<PMID>/").
-        pdf_name (str): Filename prefix for saving the downloaded PDF.
-
-    Returns:
-        (doi, download_status, pdf_url):
-            doi (str or int): Extracted DOI, or -1 if not found
-            download_status (int): 1 if PDF downloaded, -1 otherwise
-            pdf_url (str or int): Direct PDF link or -1 if not available
-    """
-    response = requests.get(paper_url)
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Attempt to find the DOI in a <span class="identifier doi"><a> structure
-        doi_span = soup.find('span', class_='identifier doi')
-        if doi_span:
-            doi_anchor = doi_span.find('a')
-            if doi_anchor:
-                doi_text = doi_anchor.text.strip()
-                print("Found DOI:", doi_text)
-                download_status, pdf_url = get_pdf_from_doi(doi_text, pdf_name)
-                return doi_text, download_status, pdf_url
-
-        print("No DOI element found in PubMed page.")
-        return -1, -1, -1
-    else:
-        print(f"Failed to access PubMed page, status code: {response.status_code}")
-        return -1, -1, -1
-
-
-def pdf_download(base_url, start_page, end_page):
-    """
-    Scrape study data from a table at 'base_url' across multiple pages, 
-    then parse each study's PMID to get its PubMed page. Next, attempt 
-    to extract and download the PDF via Sci-Hub.
-
-    Args:
-        base_url (str): The initial URL containing the table of studies (e.g., neurosynth.org/studies/).
-        start_page (int): The first page index to begin scraping.
-        end_page (int): The maximum page index to scrape up to.
-    """
-    # Set Selenium to run in headless mode
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-
-    # Initialize Chrome driver
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-
-    # Navigate to the base URL
-    driver.get(base_url)
-    time.sleep(3)  # wait for page load
-
-    all_study_data = []
-    current_page = 0
-
-    while current_page < end_page:
-        # Step 1: skip to the start_page if needed
-        while current_page < (start_page - 1):
-            try:
-                current_page += 1
-                next_button = driver.find_element(By.CLASS_NAME, 'next')
-                if next_button:
-                    next_button.click()
-                    time.sleep(3)  # wait for next page
-                else:
-                    break
-            except:
-                # Attempt again or break
-                current_page += 1
-                try:
-                    next_button = driver.find_element(By.CLASS_NAME, 'next')
-                    if next_button:
-                        next_button.click()
-                        time.sleep(3)
-                    else:
-                        break
-                except:
-                    break
-
-        # Step 2: parse the current page
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-        studies_table = soup.find('table', {'id': 'studies_table'})
-        if studies_table:
-            rows = studies_table.find_all('tr')
-            row_index = 0
-
-            for row in rows[1:]:  # skip header
-                row_index += 1
-                cells = row.find_all('td')
-                if len(cells) > 0:
-                    title = cells[0].get_text(strip=True)
-                    author = cells[1].get_text(strip=True)
-                    journal = cells[2].get_text(strip=True)
-                    year = cells[3].get_text(strip=True)
-                    pmid = cells[4].get_text(strip=True)
-
-                    paper_url = "https://pubmed.ncbi.nlm.nih.gov/" + pmid + "/"
-                    pdf_name = str(current_page * 10 + row_index).zfill(5)
-
-                    doi_val, status_val, pdf_url_val = extract_doi_from_pubmed(paper_url, pdf_name)
-                    all_study_data.append({
-                        "pdf_name": pdf_name,
-                        "pdf_url": pdf_url_val,
-                        "paper_url": paper_url,
-                        "Title": title,
-                        "Author": author,
-                        "Journal": journal,
-                        "Year": year,
-                        "PMID": pmid,
-                        "Doi": doi_val,
-                        "download_status": status_val
-                    })
-
-        # Step 3: move to the next page
-        try:
-            current_page += 1
-            next_button = driver.find_element(By.CLASS_NAME, 'next')
-            if next_button:
-                next_button.click()
-                time.sleep(3)
-            else:
-                break
-        except:
-            current_page += 1
-            try:
-                next_button = driver.find_element(By.CLASS_NAME, 'next')
-                if next_button:
-                    next_button.click()
-                    time.sleep(3)
-                else:
-                    break
-            except:
-                break
-
-        # Save partial progress to CSV
-        df = pd.DataFrame(all_study_data)
-        csv_filename = f"D:\\study\\Python_code\\BrainVLM\\PDFs\\excels\\{str(end_page*10).zfill(5)}.csv"
-        df.to_csv(csv_filename, index=False)
-
-    driver.quit()
 
 
 def main():
     """
-    Main entry point. 
-    Example usage: scrape studies from neurosynth.org/studies/, 
-    from page 1 through page 100.
+    Main workflow:
+    1. For each CSV in a given directory, load it into a DataFrame.
+    2. Filter rows with download_status == -1, indicating the PDF wasn't previously downloaded.
+    3. Try to download:
+       - If pdf_url != '-1', attempt direct download (download_pdf).
+       - Otherwise, parse Sci-Hub URL using the stored DOI and call download_pdf_scihub.
+    4. Update the CSV with the download status and final URL.
     """
-    base_url = "https://neurosynth.org/studies/"
-    pdf_download(base_url, start_page=1, end_page=100)
+    path = "D:\\study\\Python_code\\BrainVLM\\PDFs\\excels"
+    excels = os.listdir(path)
+
+    for excel_file in excels:
+        print(f"Processing: {excel_file}")
+        # Skip certain files if needed
+        if excel_file == "01000.csv":
+            continue
+
+        csv_path = os.path.join(path, excel_file)
+        data = pd.read_csv(csv_path)
+        data_copy = data.copy()
+
+        # Filter entries where download_status == -1
+        entries_to_download = data[data["download_status"] == -1]
+
+        for i in range(len(entries_to_download)):
+            pdf_name = str(entries_to_download.iloc[i][0]).zfill(5)
+            pdf_url_candidate = entries_to_download.iloc[i][1]
+
+            if pdf_url_candidate == "-1":
+                # Means we do not have a direct PDF link, so we must use Sci-Hub
+                doi_val = entries_to_download.iloc[i][8]
+                scihub_base_url = "https://sci-hub.st/"
+                page_url = scihub_base_url + doi_val.lower()
+
+                download_status, final_pdf_url = download_pdf_scihub(page_url, pdf_name)
+            else:
+                # We have a direct PDF link
+                download_status = download_pdf(pdf_url_candidate, pdf_name)
+                final_pdf_url = pdf_url_candidate
+
+            # Update the DataFrame
+            row_index = (int(entries_to_download.iloc[i][0]) % 1000) - 1
+            data_copy.iloc[row_index, -1] = download_status  # update download_status column
+            data_copy.iloc[row_index, 1] = final_pdf_url     # update pdf_url column
+
+        # Save the updated DataFrame
+        data_copy.to_csv(csv_path, index=False)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
