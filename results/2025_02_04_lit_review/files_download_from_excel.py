@@ -47,7 +47,7 @@ def download_pdf(pdf_url: str, pdf_name: str) -> int:
 
     response = requests.get(pdf_url, headers=headers, stream=True)
     if response.status_code == 200:
-        output_dir = "D:\\study\\Python_code\\BrainVLM\\PDFs\\"
+        output_dir = "./proc/paper_pdfs"
         pdf_path = os.path.join(output_dir, f"{pdf_name}.pdf")
         with open(pdf_path, "wb") as file_obj:
             for chunk in response.iter_content(chunk_size=1024):
@@ -95,7 +95,7 @@ def download_pdf_scihub(page_url: str, pdf_name: str) -> tuple:
 
             pdf_response = requests.get(pdf_url, headers=headers, stream=True)
             if pdf_response.status_code == 200:
-                output_dir = "D:\\study\\Python_code\\BrainVLM\\PDFs\\"
+                output_dir = "./proc/paper_pdfs"
                 pdf_path = os.path.join(output_dir, f"{pdf_name}.pdf")
                 with open(pdf_path, "wb") as file_obj:
                     for chunk in pdf_response.iter_content(chunk_size=1024):
@@ -124,7 +124,7 @@ def main():
        - Otherwise, parse Sci-Hub URL using the stored DOI and call download_pdf_scihub.
     4. Update the CSV with the download status and final URL.
     """
-    path = "D:\\study\\Python_code\\BrainVLM\\PDFs\\excels"
+    path = "./proc/term_csv"
     excels = os.listdir(path)
 
     for excel_file in excels:
@@ -156,13 +156,13 @@ def main():
                 download_status = download_pdf(pdf_url_candidate, pdf_name)
                 final_pdf_url = pdf_url_candidate
 
-            # Update the DataFrame
-            row_index = (int(entries_to_download.iloc[i][0]) % 1000) - 1
-            data_copy.iloc[row_index, -1] = download_status  # update download_status column
-            data_copy.iloc[row_index, 1] = final_pdf_url     # update pdf_url column
+            # # Update the DataFrame
+            # row_index = (int(entries_to_download.iloc[i][0]) % 1000) - 1
+            # data_copy.iloc[row_index, -1] = download_status  # update download_status column
+            # data_copy.iloc[row_index, 1] = final_pdf_url     # update pdf_url column
 
         # Save the updated DataFrame
-        data_copy.to_csv(csv_path, index=False)
+        # data_copy.to_csv(csv_path, index=False)
 
 
 if __name__ == '__main__':

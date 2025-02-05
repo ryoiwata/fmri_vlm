@@ -1,0 +1,69 @@
+Category,Term,Standardized Term
+Neurodegenerative Disorders,alzheimer,Alzheimer's Disease
+Neurodegenerative Disorders,alzheimer disease,Alzheimer's Disease
+Neurodegenerative Disorders,ad,Alzheimer's Disease
+Neurodegenerative Disorders,dementia,Dementia
+Neurodegenerative Disorders,parkinson,Parkinson's Disease
+Neurodegenerative Disorders,parkinson disease,Parkinson's Disease
+Neurodegenerative Disorders,disease pd,Parkinson's Disease
+Neurodegenerative Disorders,pd,Parkinson's Disease
+Memory and Cognitive Disorders,amnestic,Amnesia
+Memory and Cognitive Disorders,mild cognitive,Mild Cognitive Impairment
+Memory and Cognitive Disorders,cognitive deficits,Cognitive Impairment
+Memory and Cognitive Disorders,cognitive impairment,Cognitive Impairment
+Memory and Cognitive Disorders,mci,Mild Cognitive Impairment
+Neurodevelopmental Disorders,adhd,ADHD
+Neurodevelopmental Disorders,attention deficit,ADHD
+Neurodevelopmental Disorders,deficit hyperactivity,ADHD
+Neurodevelopmental Disorders,hyperactivity disorder,ADHD
+Neurodevelopmental Disorders,disorder adhd,ADHD
+Neurodevelopmental Disorders,autism,Autism
+Neurodevelopmental Disorders,autism spectrum,Autism Spectrum Disorder
+Neurodevelopmental Disorders,asd,Autism Spectrum Disorder
+Neurodevelopmental Disorders,spectrum disorder,Autism Spectrum Disorder
+Neurodevelopmental Disorders,dyslexia,Dyslexia
+Psychiatric Disorders,anxiety,Anxiety
+Psychiatric Disorders,anxiety disorders,Anxiety Disorders
+Psychiatric Disorders,bipolar,Bipolar Disorder
+Psychiatric Disorders,bipolar disorder,Bipolar Disorder
+Psychiatric Disorders,depression,Depression
+Psychiatric Disorders,depressed,Depression
+Psychiatric Disorders,depressive,Depression
+Psychiatric Disorders,depressive disorder,Depression
+Psychiatric Disorders,major depression,Major Depressive Disorder
+Psychiatric Disorders,major depressive,Major Depressive Disorder
+Psychiatric Disorders,mdd,Major Depressive Disorder
+Psychiatric Disorders,disorder mdd,Major Depressive Disorder
+Psychiatric Disorders,obsessive,OCD
+Psychiatric Disorders,obsessive compulsive,OCD
+Psychiatric Disorders,compulsive,OCD
+Psychiatric Disorders,compulsive disorder,OCD
+Psychiatric Disorders,ocd,OCD
+Psychiatric Disorders,disorder ocd,OCD
+Psychiatric Disorders,ptsd,PTSD
+Psychiatric Disorders,posttraumatic,PTSD
+Psychiatric Disorders,disorder ptsd,PTSD
+Psychiatric Disorders,stress disorder,PTSD
+Psychiatric Disorders,psychosis,Psychosis
+Psychiatric Disorders,psychotic,Psychosis
+Psychiatric Disorders,schizophrenia,Schizophrenia
+Psychiatric Disorders,schizophrenic,Schizophrenia
+Neurological Conditions,aphasia,Aphasia
+Neurological Conditions,epilepsy,Epilepsy
+Neurological Conditions,multiple sclerosis,Multiple Sclerosis
+Neurological Conditions,sclerosis,Multiple Sclerosis
+Neurological Conditions,ms,Multiple Sclerosis
+Neurological Conditions,stroke,Stroke
+Neurological Conditions,injury,Neural Injury
+Neurological Conditions,lesion,Neural Injury
+Neurological Conditions,lesions,Neural Injury
+Neurological Conditions,damage,Neural Injury
+Addiction and Substance-Related,addiction,Addiction
+Addiction and Substance-Related,alcohol,Alcohol Use Disorder
+Addiction and Substance-Related,substance,Substance Use
+Addiction and Substance-Related,drug,Substance Use
+Addiction and Substance-Related,drugs,Substance Use
+Addiction and Substance-Related,smoking,Nicotine Use
+Addiction and Substance-Related,smokers,Nicotine Use
+Addiction and Substance-Related,craving,Addiction
+Addiction and Substance-Related,dependence,Addiction
