@@ -1,148 +1,183 @@
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-import json
+#!/usr/bin/env python3
+"""
+Scrapes study metadata from neurosynth.org term analysis pages, 
+including PubMed PMIDs, and optionally fetches DOIs. 
 
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-import pandas as pd
+Output is saved to a CSV for each term listed in a local CSV file (Items.csv).
+"""
 
-from ipdb import set_trace
+import os
 import time
-
-from bs4 import BeautifulSoup
 import urllib.parse
 import requests
+import pandas as pd
 
-def get_urlInItems(base_url, name, paper_nums):
-    # 请求头
-    head = {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
-    # 设置Selenium的浏览器配置（使用Chrome）
+from bs4 import BeautifulSoup
+from ipdb import set_trace
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+
+
+# NOTE: This function "DOI(...)" is referenced but not defined in the snippet.
+# You must provide or import it from elsewhere in your codebase.
+# Example placeholder:
+def DOI(paper_url, pdf_prefix):
+    """
+    Placeholder for a function that returns:
+       - doi (str or int)
+       - download_status (int)
+    based on a PubMed URL (paper_url).
+
+    Args:
+        paper_url (str): A string URL to a PubMed page
+        pdf_prefix (str): Some prefix or unique identifier for the PDF file
+
+    Returns:
+        (doi, download_status):
+            doi (str or int): Identified DOI or -1 if not found
+            download_status (int): 1 if downloaded successfully, -1 otherwise
+    """
+    return -1, -1  # TODO: Replace with actual logic.
+
+
+def fetch_study_items(base_url, term_name, paper_count):
+    """
+    Scrape the 'studies' table from a neurosynth.org analysis page (or similar),
+    capturing up to 'paper_count' studies. The script navigates through 
+    pagination until it either reaches the required number of papers or 
+    runs out of pages.
+
+    Args:
+        base_url (str): 
+            The URL of the neurosynth page that includes a "studies" tab, e.g., 
+            "https://neurosynth.org/analyses/terms/<term>/".
+        term_name (str): 
+            The name or ID used to label the CSV output (e.g., 'pain' or 'memory').
+        paper_count (int): 
+            The number of studies/papers to capture from the table.
+
+    Returns:
+        None. A CSV file is written to "D:/study/Python_code/BrainVLM/papers/Excels/<term_name>.csv".
+    """
+    # Configure Selenium to run in headless mode (no visible browser)
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # 无头模式
-    # 获取 chromedriver 路径
+    chrome_options.add_argument("--headless")
     service = Service(ChromeDriverManager().install())
-    # 启动 Chrome 浏览器
-    driver = webdriver.Chrome(service=service)
-    # 你可以继续使用 driver 进行网页操作
-    driver.get('https://www.example.com')
+    driver = webdriver.Chrome(service=service, options=chrome_options)
 
-    # 打开网页
+    # Open a placeholder page, then navigate to the target
+    driver.get("https://www.example.com")
     driver.get(base_url)
-    # 设置等待时间，确保页面加载完毕
-    time.sleep(3)
+    time.sleep(3)  # allow time for page to load
 
-    # 存储所有抓取的数据
     all_study_data = []
-    # 假设表格有分页，循环爬取多页
-    num = 0
-    flag = 0
-    # 解析当前页面的HTML
-    soup = BeautifulSoup(driver.page_source, 'html.parser')
-    # set_trace()
-    # 找到 <a> 标签并点击
-    study_button_element = driver.find_element(By.CSS_SELECTOR, "a[data-toggle='tab'][href='#studies']")
-    study_button_element.click()
+    scraped_count = 0
 
-    # div_tag = soup.find('div', {'id': 'analysis-studies-table_info'})
-    # all_num = div_tag.get_text(strip=True).split(" ")[-2]
-    # 查找表格数据（根据页面的HTML结构调整）
+    # Access the 'Studies' tab via its CSS selector
+    # (adjust the find_element logic if the actual structure changes)
+    study_button = driver.find_element(By.CSS_SELECTOR, "a[data-toggle='tab'][href='#studies']")
+    study_button.click()
 
-    while num < paper_nums:
-        soup = BeautifulSoup(driver.page_source, 'html.parser')  # 更新 soup
-        table = soup.find('table', {'id': 'analysis-studies-table'})
-        if table:
-            rows = table.find_all('tr')
-            for row in rows[1:]:  # 跳过表头
-                cols = row.find_all('td')
+    while scraped_count < paper_count:
+        # Parse current page with BeautifulSoup
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        studies_table = soup.find("table", {"id": "analysis-studies-table"})
+
+        if studies_table:
+            rows = studies_table.find_all("tr")
+            # Skip the header row
+            for row in rows[1:]:
+                cols = row.find_all("td")
                 if len(cols) > 0:
-                    print(num)
-                    if num == paper_nums:
+                    if scraped_count == paper_count:
                         break
+
                     title = cols[0].get_text(strip=True)
                     author = cols[1].get_text(strip=True)
                     journal = cols[2].get_text(strip=True)
-                    loading = cols[3].get_text(strip=True)
-                    pmid = cols[0].find('a')['href'].split("/")[-2]
-                    num += 1
-                    paper_url = "https://pubmed.ncbi.nlm.nih.gov/" + pmid + "/"
-                    print(title)
-                    # doi, download_status = DOI(paper_url, num)
+                    loading_info = cols[3].get_text(strip=True)
+
+                    # Extract PMID from the 'href'
+                    pmid_link = cols[0].find("a")["href"]
+                    pmid = pmid_link.split("/")[-2]  # e.g., .../12345678/
+
+                    scraped_count += 1
+                    paper_url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+                    print(f"{scraped_count}. Title: {title}")
+
+                    # Attempt to retrieve the DOI (and possibly download the PDF)
                     try:
-                        doi, download_status = DOI(paper_url, name+"_"+str(num).zfill(5))
-                    except:
-                        doi, download_status = -1, -1
+                        doi_val, download_status_val = DOI(paper_url, f"{term_name}_{str(scraped_count).zfill(5)}")
+                    except Exception as e:
+                        print("Error calling DOI function:", e)
+                        doi_val, download_status_val = -1, -1
+
                     all_study_data.append({
-                        "paper_name": name+"_"+str(num).zfill(5),
-                        'paper_url': paper_url,
-                        'Title': title,
-                        'Author': author,
-                        'Journal': journal,
-                        'Loading': loading,
-                        'PMID': pmid,
-                        "Doi": doi,
-                        "download_status": download_status
+                        "paper_name": f"{term_name}_{str(scraped_count).zfill(5)}",
+                        "paper_url": paper_url,
+                        "Title": title,
+                        "Author": author,
+                        "Journal": journal,
+                        "Loading": loading_info,
+                        "PMID": pmid,
+                        "Doi": doi_val,
+                        "download_status": download_status_val
                     })
-                    # set_trace()
-                    # if len(all_study_data) % 200 == 0:
-                    #     # 转换为 DataFrame
-                    #     df = pd.DataFrame(all_study_data)
-                    #     # 保存到 CSV
-                    #     df.to_csv("D:/study/Python_code/BrainVLM/papers/Excels/"+name+".csv", index=False)
 
-        # set_trace()
-        # 查找是否有“下一页”按钮
+        # Attempt to click "Next" page
         try:
-            # print(all_study_data)
-            # 假设下一页按钮的class为'next'，根据实际情况调整
-            next_button = driver.find_element(By.CLASS_NAME, 'next')
+            next_button = driver.find_element(By.CLASS_NAME, "next")
             if next_button:
                 next_button.click()
-                time.sleep(3)  # 等待页面加载
+                time.sleep(3)  # wait for page load
             else:
-                break  # 如果没有“下一页”按钮，停止翻页
+                break
         except:
-            next_button = driver.find_element(By.CLASS_NAME, 'next')
-            if next_button:
-                next_button.click()
-                time.sleep(3)  # 等待页面加载
-            else:
-                break  # 如果没有“下一页”按钮，停止翻页
+            # If there's no next button or it fails, break out
+            break
 
-    # 打印抓取到的数据
-    for study in all_study_data:
-        print("**"*20)
-        print(study)
+        if scraped_count >= paper_count:
+            break
+
+    # Print scraped results (debugging)
+    for study_item in all_study_data:
+        print("*" * 40)
+        print(study_item)
+
+    # Write to a local CSV file
+    csv_filename = f"D:/study/Python_code/BrainVLM/papers/Excels/{term_name}.csv"
     df = pd.DataFrame(all_study_data)
-    # 保存到 CSV
-    df.to_csv("D:/study/Python_code/BrainVLM/papers/Excels/" + name + ".csv", index=False)
-    # 关闭浏览器
+    df.to_csv(csv_filename, index=False)
+
     driver.quit()
 
 
-
 def main():
-    data = pd.read_csv("D:\study\Python_code\BrainVLM\papers\Items.csv")
-    for i in range(100,200):
+    """
+    Main loop that:
+    1) Reads a local CSV file 'Items.csv' with rows like [term_name, paper_count].
+    2) For each row, constructs a neurosynth URL and calls 'fetch_study_items' to scrape data.
+    """
+    items_csv = "D:/study/Python_code/BrainVLM/papers/Items.csv"
+    data = pd.read_csv(items_csv)
+
+    for i in range(100, 200):
         try:
-            name = data.iloc[i][0]
-            paper_nums = data.iloc[i][1]
-            print(name)
-            # 爬取文章
-            url = "https://neurosynth.org/analyses/terms/{}/".format(name)
-            get_urlInItems(url, name=name, paper_nums = paper_nums)
-        except:
+            term_name = data.iloc[i][0]
+            paper_nums = int(data.iloc[i][1])  # number of papers to scrape
+            print(f"Scraping term: {term_name}")
+
+            # Build the neurosynth term analysis URL
+            url = f"https://neurosynth.org/analyses/terms/{term_name}/"
+            fetch_study_items(base_url=url, name=term_name, paper_nums=paper_nums)
+        except Exception as e:
+            print(f"Error on index {i} with term {term_name}: {e}")
             continue
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-

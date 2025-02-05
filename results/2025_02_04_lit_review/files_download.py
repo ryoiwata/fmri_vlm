@@ -1,224 +1,237 @@
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-import json
+#!/usr/bin/env python3
+"""
+A script to:
+1) Scrape study information from a paginated table at neurosynth.org (or another site).
+2) Extract the PMID for each study.
+3) Build a PubMed URL for each PMID, parse the resulting page for a DOI, 
+4) Attempt to download the PDF via Sci-Hub.
+
+The results are saved in a CSV file, while PDFs are stored locally if found.
+"""
+
+import requests
+import time
+import pandas as pd
+from bs4 import BeautifulSoup
+from ipdb import set_trace
 
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-import pandas as pd
-
-from ipdb import set_trace
-import time
-
-from bs4 import BeautifulSoup
-import urllib.parse
-import requests
 
 
+def get_pdf_from_doi(doi, pdf_name):
+    """
+    Attempt to download a paper's PDF from Sci-Hub using the given DOI.
+    
+    Args:
+        doi (str): The paper's DOI.
+        pdf_name (str): Filename prefix used for saving the PDF.
+        
+    Returns:
+        (status_code, pdf_url): 
+            status_code = 1 if PDF successfully downloaded, -1 otherwise
+            pdf_url = The direct PDF link or -1 if none found.
+    """
+    sci_hub_url = "https://sci-hub.ren/"
+    page_url = sci_hub_url + doi
+    print(f"Visiting Sci-Hub page: {page_url}")
 
-def DOI(url, pdf_name):
-    # 发送GET请求获取网页内容
-    response = requests.get(url)
-
-    # 如果请求成功，继续处理
-    if response.status_code == 200:
-        # 解析网页内容
-        soup = BeautifulSoup(response.text, 'html.parser')
-        # link = soup.find('a', class_='id-link')
-        # if link:
-            # ref_attr = link.get("ref", "")
-            #
-            # # 解析 URL 参数
-            # parsed_params = urllib.parse.parse_qs(ref_attr)
-            # # 获取 article_id
-            # doi = parsed_params.get("article_id", [""])[0]
-
-        doi_element = soup.find('span', class_='identifier doi').find('a')
-        doi = doi_element.text.strip() if doi_element else -1
-        print("doi:", doi)
-            # getPaperPdf(doi, pdf_name)
-    download_status, pdf_url = getPaperPdf(doi, pdf_name)
-
-    return doi, download_status, pdf_url
-    # try:
-    #     return doi, getPaperPdf(doi, pdf_name)
-    # except:
-    #     set_trace()
-
-def getPaperPdf(doi, pdf_name):
-    sci_Hub_Url = "https://sci-hub.ren/"
-    page_url = sci_Hub_Url + doi
-    print(page_url)
-
-    # 发送请求获取网页内容
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        # "Referer": "https://sci.bban.top/"
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) "
+                       "Chrome/120.0.0.0 Safari/537.36")
     }
     response = requests.get(page_url, headers=headers)
 
     if response.status_code == 200:
-        # 解析 HTML
         soup = BeautifulSoup(response.text, "html.parser")
-        # 查找 <embed> 标签
         embed_tag = soup.find("embed", {"type": "application/pdf"})
         if embed_tag:
-            pdf_url = embed_tag["src"].split("#")[0]  # 去除锚点
-            print(f"找到 PDF URL: {pdf_url}")
+            pdf_url = embed_tag["src"].split("#")[0]  # remove any anchor
+            print(f"Found PDF URL: {pdf_url}")
 
-            # # 下载 PDF
             pdf_response = requests.get(pdf_url, headers=headers, stream=True)
             if pdf_response.status_code == 200:
-                output = "D:\\study\\Python_code\\BrainVLM\\PDFs\\"
-                with open(output + pdf_name+".pdf", "wb") as file:
+                output_dir = "D:\\study\\Python_code\\BrainVLM\\PDFs\\"
+                pdf_path = f"{output_dir}{pdf_name}.pdf"
+
+                with open(pdf_path, "wb") as file_obj:
                     for chunk in pdf_response.iter_content(chunk_size=1024):
-                        file.write(chunk)
-                print("PDF 下载成功: {}.pdf".format(pdf_name))
+                        file_obj.write(chunk)
+
+                print(f"PDF downloaded successfully: {pdf_name}.pdf")
                 return 1, pdf_url
             else:
-                print(f"PDF 下载失败，状态码: {pdf_response.status_code}")
+                print(f"PDF download failed, status code: {pdf_response.status_code}")
                 return -1, pdf_url
         else:
-            print("未找到 PDF 资源")
+            print("No <embed> PDF resource found on the page.")
             return -1, -1
-
     else:
-        print(f"网页访问失败，状态码: {response.status_code}")
+        print(f"Failed to access Sci-Hub, status code: {response.status_code}")
         return -1, -1
 
 
+def extract_doi_from_pubmed(paper_url, pdf_name):
+    """
+    Given a PubMed page URL, parse for the DOI, then attempt to download the PDF via Sci-Hub.
+
+    Args:
+        paper_url (str): The full PubMed URL (e.g., "https://pubmed.ncbi.nlm.nih.gov/<PMID>/").
+        pdf_name (str): Filename prefix for saving the downloaded PDF.
+
+    Returns:
+        (doi, download_status, pdf_url):
+            doi (str or int): Extracted DOI, or -1 if not found
+            download_status (int): 1 if PDF downloaded, -1 otherwise
+            pdf_url (str or int): Direct PDF link or -1 if not available
+    """
+    response = requests.get(paper_url)
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Attempt to find the DOI in a <span class="identifier doi"><a> structure
+        doi_span = soup.find('span', class_='identifier doi')
+        if doi_span:
+            doi_anchor = doi_span.find('a')
+            if doi_anchor:
+                doi_text = doi_anchor.text.strip()
+                print("Found DOI:", doi_text)
+                download_status, pdf_url = get_pdf_from_doi(doi_text, pdf_name)
+                return doi_text, download_status, pdf_url
+
+        print("No DOI element found in PubMed page.")
+        return -1, -1, -1
+    else:
+        print(f"Failed to access PubMed page, status code: {response.status_code}")
+        return -1, -1, -1
 
 
-def PDF_download(base_url, start, end):
-    # 请求头
-    head = {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.117 Safari/537.36"
-    }
-    # 设置Selenium的浏览器配置（使用Chrome）
+def pdf_download(base_url, start_page, end_page):
+    """
+    Scrape study data from a table at 'base_url' across multiple pages, 
+    then parse each study's PMID to get its PubMed page. Next, attempt 
+    to extract and download the PDF via Sci-Hub.
+
+    Args:
+        base_url (str): The initial URL containing the table of studies (e.g., neurosynth.org/studies/).
+        start_page (int): The first page index to begin scraping.
+        end_page (int): The maximum page index to scrape up to.
+    """
+    # Set Selenium to run in headless mode
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # 无头模式
-    # 获取 chromedriver 路径
+    chrome_options.add_argument("--headless")
+
+    # Initialize Chrome driver
     service = Service(ChromeDriverManager().install())
-    # 启动 Chrome 浏览器
-    driver = webdriver.Chrome(service=service)
-    # 你可以继续使用 driver 进行网页操作
-    driver.get('https://www.example.com')
+    driver = webdriver.Chrome(service=service, options=chrome_options)
 
-    # 打开网页
+    # Navigate to the base URL
     driver.get(base_url)
-    # 设置等待时间，确保页面加载完毕
-    time.sleep(3)
+    time.sleep(3)  # wait for page load
 
-    # 存储所有抓取的数据
     all_study_data = []
-    # 假设表格有分页，循环爬取多页
-    page = 0
-    while page < end:
-        # 解析当前页面的HTML
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-        # 查找表格数据（根据页面的HTML结构调整）
-        table = soup.find('table', {'id': 'studies_table'})
-        while page < start-1:
-            # 查找是否有“下一页”按钮
+    current_page = 0
+
+    while current_page < end_page:
+        # Step 1: skip to the start_page if needed
+        while current_page < (start_page - 1):
             try:
-                # 假设下一页按钮的class为'next'，根据实际情况调整
-                page += 1
+                current_page += 1
                 next_button = driver.find_element(By.CLASS_NAME, 'next')
                 if next_button:
                     next_button.click()
-                    time.sleep(3)  # 等待页面加载
+                    time.sleep(3)  # wait for next page
                 else:
-                    break  # 如果没有“下一页”按钮，停止翻页
+                    break
             except:
-                page += 1
-                next_button = driver.find_element(By.CLASS_NAME, 'next')
-                if next_button:
-                    next_button.click()
-                    time.sleep(3)  # 等待页面加载
-                else:
-                    break  # 如果没有“下一页”按钮，停止翻页
+                # Attempt again or break
+                current_page += 1
+                try:
+                    next_button = driver.find_element(By.CLASS_NAME, 'next')
+                    if next_button:
+                        next_button.click()
+                        time.sleep(3)
+                    else:
+                        break
+                except:
+                    break
 
-        # 解析当前页面的HTML
+        # Step 2: parse the current page
         soup = BeautifulSoup(driver.page_source, 'html.parser')
-        # 查找表格数据（根据页面的HTML结构调整）
-        table = soup.find('table', {'id': 'studies_table'})
+        studies_table = soup.find('table', {'id': 'studies_table'})
+        if studies_table:
+            rows = studies_table.find_all('tr')
+            row_index = 0
 
-        if table:
-            rows = table.find_all('tr')
-            num_item = 0
-            for row in rows[1:]:  # 跳过表头
-                num_item += 1
-                cols = row.find_all('td')
-                if len(cols) > 0:
-                    title = cols[0].get_text(strip=True)
-                    author = cols[1].get_text(strip=True)
-                    journal = cols[2].get_text(strip=True)
-                    year = cols[3].get_text(strip=True)
-                    pmid = cols[4].get_text(strip=True)
+            for row in rows[1:]:  # skip header
+                row_index += 1
+                cells = row.find_all('td')
+                if len(cells) > 0:
+                    title = cells[0].get_text(strip=True)
+                    author = cells[1].get_text(strip=True)
+                    journal = cells[2].get_text(strip=True)
+                    year = cells[3].get_text(strip=True)
+                    pmid = cells[4].get_text(strip=True)
+
                     paper_url = "https://pubmed.ncbi.nlm.nih.gov/" + pmid + "/"
-                    # print(title)
-                    pdf_name = str(page*10+num_item).zfill(5)
-                    doi, download_status, pdf_url = DOI(paper_url, pdf_name)
-                    # if download_status == -1:
-                    #     set_trace()
-                    # try:
-                    #     doi, download_status = DOI(paper_url, pdf_name)
-                    # except:
-                    #     doi, download_status = -1, -1
+                    pdf_name = str(current_page * 10 + row_index).zfill(5)
+
+                    doi_val, status_val, pdf_url_val = extract_doi_from_pubmed(paper_url, pdf_name)
                     all_study_data.append({
                         "pdf_name": pdf_name,
-                        "pdf_url": pdf_url,
-                        'paper_url': paper_url,
-                        'Title': title,
-                        'Author': author,
-                        'Journal': journal,
-                        'Year': year,
-                        'PMID': pmid,
-                        "Doi": doi,
-                        "download_status": download_status
+                        "pdf_url": pdf_url_val,
+                        "paper_url": paper_url,
+                        "Title": title,
+                        "Author": author,
+                        "Journal": journal,
+                        "Year": year,
+                        "PMID": pmid,
+                        "Doi": doi_val,
+                        "download_status": status_val
                     })
 
-        # 查找是否有“下一页”按钮
+        # Step 3: move to the next page
         try:
-            # 假设下一页按钮的class为'next'，根据实际情况调整
-            page += 1
+            current_page += 1
             next_button = driver.find_element(By.CLASS_NAME, 'next')
             if next_button:
                 next_button.click()
-                time.sleep(3)  # 等待页面加载
+                time.sleep(3)
             else:
-                break  # 如果没有“下一页”按钮，停止翻页
+                break
         except:
-            page += 1
-            next_button = driver.find_element(By.CLASS_NAME, 'next')
-            if next_button:
-                next_button.click()
-                time.sleep(3)  # 等待页面加载
-            else:
-                break  # 如果没有“下一页”按钮，停止翻页
+            current_page += 1
+            try:
+                next_button = driver.find_element(By.CLASS_NAME, 'next')
+                if next_button:
+                    next_button.click()
+                    time.sleep(3)
+                else:
+                    break
+            except:
+                break
 
-
-        # 转换为 DataFrame
+        # Save partial progress to CSV
         df = pd.DataFrame(all_study_data)
-        # 保存到 CSV
-        df.to_csv("D:\\study\\Python_code\\BrainVLM\\PDFs\\excels\\" + str(end*10).zfill(5)+".csv", index=False)
+        csv_filename = f"D:\\study\\Python_code\\BrainVLM\\PDFs\\excels\\{str(end_page*10).zfill(5)}.csv"
+        df.to_csv(csv_filename, index=False)
 
-    # 关闭浏览器
     driver.quit()
 
+
 def main():
-
+    """
+    Main entry point. 
+    Example usage: scrape studies from neurosynth.org/studies/, 
+    from page 1 through page 100.
+    """
     base_url = "https://neurosynth.org/studies/"
-    PDF_download(base_url,1,100)
+    pdf_download(base_url, start_page=1, end_page=100)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
