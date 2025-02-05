@@ -19,6 +19,8 @@
 *Copy*
 *copy*
 *.csv
+*.pdf
+*.tsv
 
 # Directories
 data/
