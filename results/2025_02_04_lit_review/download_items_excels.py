@@ -149,7 +149,7 @@ def fetch_study_items(base_url, term_name, paper_count):
         print(study_item)
 
     # Write to a local CSV file
-    csv_filename = f"D:/study/Python_code/BrainVLM/papers/Excels/{term_name}.csv"
+    csv_filename = f"./proc/term_csv/{term_name}.csv"
     df = pd.DataFrame(all_study_data)
     df.to_csv(csv_filename, index=False)
 
@@ -160,22 +160,26 @@ def main():
     """
     Main loop that:
     1) Reads a local CSV file 'Items.csv' with rows like [term_name, paper_count].
-    2) For each row, constructs a neurosynth URL and calls 'fetch_study_items' to scrape data.
+    2) For each row in the CSV, constructs a neurosynth URL and calls 'fetch_study_items' to scrape data.
     """
-    items_csv = "D:/study/Python_code/BrainVLM/papers/Items.csv"
+    items_csv = "./items.csv"
     data = pd.read_csv(items_csv)
 
-    for i in range(100, 200):
+    # Iterate through the rows of the CSV
+    for index, row in data.iterrows():
         try:
-            term_name = data.iloc[i][0]
-            paper_nums = int(data.iloc[i][1])  # number of papers to scrape
+            term_name = row[0]  # Assuming 'term_name' is in the first column
+            paper_nums = int(row[1])  # Assuming 'paper_count' is in the second column
             print(f"Scraping term: {term_name}")
 
             # Build the neurosynth term analysis URL
             url = f"https://neurosynth.org/analyses/terms/{term_name}/"
-            fetch_study_items(base_url=url, name=term_name, paper_nums=paper_nums)
+
+            # Make sure the argument names match the signature of fetch_study_items()
+            fetch_study_items(base_url=url, term_name=term_name, paper_count=paper_nums)
+
         except Exception as e:
-            print(f"Error on index {i} with term {term_name}: {e}")
+            print(f"Error on row {index} with term {term_name}: {e}")
             continue
 
 
