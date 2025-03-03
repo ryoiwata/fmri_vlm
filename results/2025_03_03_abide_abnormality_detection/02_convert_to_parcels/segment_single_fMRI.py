@@ -38,9 +38,11 @@ def load_atlas(atlas_path: str) -> np.ndarray:
         raise IOError(f"Failed to load atlas at {atlas_path}: {str(e)}")
 
 
-def extract_parcel_timeseries(fmri_path: str,
-                              label_data: np.ndarray,
-                              n_parcels: int) -> np.ndarray:
+def extract_parcel_timeseries(
+    fmri_path: str,
+    label_data: np.ndarray,
+    n_parcels: int
+) -> np.ndarray:
     """
     Load a 4D fMRI volume from `fmri_path`, reshape it to (timepoints, voxels),
     and compute mean time series for each of the `n_parcels` in `label_data`.
@@ -54,14 +56,19 @@ def extract_parcel_timeseries(fmri_path: str,
     n_timepoints = flattened.shape[0]
 
     pmTS = np.zeros((n_timepoints, n_parcels))
-    for i in range(1, n_parcels + 1):
-        # True where the atlas is labeled as parcel i
-        parcel_mask = (label_data == i)
-        # Subset the fMRI data for those voxels
-        y = flattened[:, parcel_mask]
-        pmTS[:, i - 1] = np.nanmean(y, axis=1)
 
-    # Replace any NaNs with 0
+    for i in range(1, n_parcels + 1):
+        parcel_mask = (label_data == i)
+        num_voxels  = np.sum(parcel_mask)
+
+        if num_voxels == 0:
+            # If no voxels in this parcel, fill with 0.0
+            pmTS[:, i - 1] = 0.0
+        else:
+            y = flattened[:, parcel_mask]  # shape: (timepoints, #voxels_in_parcel)
+            pmTS[:, i - 1] = np.nanmean(y, axis=1)
+
+    # Replace any remaining NaNs with 0
     pmTS[np.isnan(pmTS)] = 0
     return pmTS
 

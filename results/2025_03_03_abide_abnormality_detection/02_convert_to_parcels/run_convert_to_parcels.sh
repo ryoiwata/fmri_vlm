@@ -34,7 +34,7 @@ set -e  # stop on error
 IN_LIST="file_list.txt"
 
 # Atlas info for the python script
-ATLAS_PATH="/blue/ruogu.fang/ryoi360/projects/fmri_vlm/data/AAL3v1.nii.gz"
+ATLAS_PATH="/blue/ruogu.fang/ryoi360/projects/fmri_vlm/data/AAL3.nii.gz"
 N_PARCELS="166"
 
 # Directory for final .dat outputs after segmentation
