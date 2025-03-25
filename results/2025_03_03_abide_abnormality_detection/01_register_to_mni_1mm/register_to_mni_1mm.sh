@@ -24,9 +24,9 @@ set -e
 
 # Paths
 IN_LIST="file_list.txt"  # Text file containing input file paths
-OUT_DIR="/blue/ruogu.fang/ryoi360/projects/fmri_vlm/data/ABIDE_MNI"
+OUT_DIR="/blue/ruogu.fang/ryoi360/projects/fmri_vlm/data/ABIDE_MNI_2mm"
 REF_PATH="/blue/ruogu.fang/ryoi360/projects/fmri_vlm/data/tpl-MNI152NLin6Asym_res-02_T1w.nii.gz"
-APPLY_ISO_XFM="3"
+APPLY_ISO_XFM="2"
 
 # Read the file corresponding to this SLURM_ARRAY_TASK_ID
 in_file=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" "${IN_LIST}")
@@ -41,7 +41,7 @@ fi
 file_base_name=$(basename "${in_file}" "_func_preproc.nii.gz")
 
 # Define output file path
-out_file="${OUT_DIR}/${file_base_name}_MNI.nii.gz"
+out_file="${OUT_DIR}/${file_base_name}_MNI_2mm.nii.gz"
 
 echo "-------------------------------------------------"
 echo "Task ID: ${SLURM_ARRAY_TASK_ID}"
